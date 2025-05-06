@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@angular/core';
 import { UserRole } from '../models/user-role.model';
-import { Observable, tap } from 'rxjs';
+import { BehaviorSubject, catchError, Observable, of, tap } from 'rxjs';
 import { RBAC_PROVIDER } from '../constants/constants';
 import { HttpClient } from '@angular/common/http';
 
@@ -9,6 +9,7 @@ import { HttpClient } from '@angular/common/http';
 })
 export class PermissionsService {
   private _roles: UserRole[] = [];
+  private _rolesLoaded$ = new BehaviorSubject<boolean>(false);
 
   constructor(
     private httpClient: HttpClient,
@@ -17,6 +18,10 @@ export class PermissionsService {
   ) {}
 
   load(): Observable<UserRole[]> {
+    if (this._rolesLoaded$.value) {
+      return of(this._roles);
+    }
+
     if (!this.rbacProvider) {
       throw new Error(
         'RBAC provider is not configured. Please provide it using RbacModule.forRoot.'
@@ -24,12 +29,20 @@ export class PermissionsService {
     }
 
     if (typeof this.rbacProvider === 'string') {
-      return this.httpClient
-        .get<UserRole[]>(this.rbacProvider)
-        .pipe(tap((response) => this.assignRoles(response)));
+      return this.httpClient.get<UserRole[]>(this.rbacProvider).pipe(
+        tap((response) => this.assignRoles(response)),
+        catchError((_) => this.catchError(_))
+      );
     }
 
-    return this.rbacProvider.pipe(tap((response) => this.assignRoles(response)));
+    return this.rbacProvider.pipe(
+      tap((response) => this.assignRoles(response)),
+      catchError((_) => this.catchError(_))
+    );
+  }
+
+  get rolesLoaded$(): Observable<boolean> {
+    return this._rolesLoaded$.asObservable();
   }
 
   hasRole(roleName: string): boolean {
@@ -59,5 +72,12 @@ export class PermissionsService {
     }
 
     this._roles = roles;
+    this._rolesLoaded$.next(true);
+  }
+
+  private catchError(error: Error) {
+    //TODO: Log error on dev mode
+    this.assignRoles([]);
+    return of([]);
   }
 }

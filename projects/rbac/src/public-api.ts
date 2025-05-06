@@ -13,6 +13,7 @@ export * from './lib/guards/authorization.guard';
 export * from './lib/directives/has-permission.directive';
 export * from './lib/directives/has-restriction.directive';
 export * from './lib/services/permissions.service';
+export * from './lib/resolvers/rbac.resolver';
 
 export interface RbacConfig {
   rbacDataSource?: Provider;
